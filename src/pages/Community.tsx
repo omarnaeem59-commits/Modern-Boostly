@@ -86,8 +86,7 @@ const communityPosts: Post[] = [
     liked: false,
     media: {
       type: "video",
-      url: "/api/videos/morning-routine",
-      thumbnail: "/api/thumbnails/morning-routine.jpg"
+      url: "https://youtu.be/4pdeYkuJ-Zk?si=J6aWi1_pHbguLE6a"
     }
   },
   {
@@ -161,6 +160,20 @@ export default function Community() {
       case "video": return <Video className="h-4 w-4 text-secondary" />
       default: return <MessageCircle className="h-4 w-4 text-muted-foreground" />
     }
+  }
+
+  const getYouTubeVideoId = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+      /youtube\.com\/v\/([^&\n?#]+)/
+    ]
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match) return match[1]
+    }
+    
+    return null
   }
 
   const formatTimestamp = (date: Date) => {
@@ -328,17 +341,26 @@ export default function Community() {
                     {post.content}
                   </div>
 
-                  {/* Video Thumbnail */}
-                  {post.media?.type === "video" && (
-                    <div className="relative rounded-lg overflow-hidden bg-muted aspect-video">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Button size="lg" className="rounded-full gradient-primary">
-                          <Play className="h-6 w-6" />
-                        </Button>
-                      </div>
-                      <div className="absolute bottom-4 left-4 text-white text-sm bg-black/50 px-2 py-1 rounded">
-                        5:42
-                      </div>
+                  {/* YouTube Video Player */}
+                  {post.media?.type === "video" && post.media.url && (
+                    <div className="rounded-lg overflow-hidden aspect-video">
+                      {(() => {
+                        const videoId = getYouTubeVideoId(post.media.url)
+                        return videoId ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${videoId}`}
+                            title="YouTube video player"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                            className="w-full h-full"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted flex items-center justify-center">
+                            <p className="text-muted-foreground">Invalid video URL</p>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
 
