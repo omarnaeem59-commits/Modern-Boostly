@@ -256,4 +256,41 @@
   .animate-bounce-in {
     animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
   }
+
+  /* Dark mode scrollbar styling */
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: hsl(var(--surface));
+    border-radius: 4px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+
+  .dark ::-webkit-scrollbar-corner {
+    background: hsl(var(--surface));
+  }
+
+  /* Sidebar specific scrollbar styling in dark mode */
+  .dark .sidebar-content::-webkit-scrollbar-track {
+    background: hsl(var(--sidebar-background));
+  }
+
+  .dark .sidebar-content::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-border));
+  }
+
+  .dark .sidebar-content::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--sidebar-foreground) / 0.3);
+  }
 }

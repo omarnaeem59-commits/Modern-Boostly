@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/AppSidebar"
 import { Button } from "@/components/ui/button"
-import { Bell, Settings, Menu, User, LogOut } from "lucide-react"
+import { Bell, Settings, Menu, User, LogOut, Sun, Moon } from "lucide-react"
 import { NotificationPanel } from "@/components/NotificationPanel"
 import {
   DropdownMenu,
@@ -12,9 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { useUser } from "@/contexts/UserContext"
 import { useAuth } from "@/contexts/AuthContext"
+import { useNotifications } from "@/contexts/NotificationContext"
+import { useTheme } from "@/components/ThemeProvider"
 import { useNavigate } from "react-router-dom"
 
 interface LayoutProps {
@@ -29,11 +31,38 @@ function LayoutContent({ children, notificationOpen, setNotificationOpen }: {
   const { toggleSidebar } = useSidebar()
   const { user } = useUser()
   const { logout } = useAuth()
+  const { unreadCount } = useNotifications()
+  const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  // Track the actual applied theme
+  useEffect(() => {
+    const checkTheme = () => {
+      const root = document.documentElement
+      setIsDarkMode(root.classList.contains("dark"))
+    }
+    
+    checkTheme()
+    
+    // Watch for theme changes
+    const observer = new MutationObserver(checkTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    })
+    
+    return () => observer.disconnect()
+  }, [theme])
 
   const handleLogout = () => {
     logout()
     navigate("/login")
+  }
+
+  const toggleTheme = () => {
+    // Toggle to the opposite of current appearance
+    setTheme(isDarkMode ? "light" : "dark")
   }
 
   // Show loading or fallback if user is not loaded
@@ -78,7 +107,21 @@ function LayoutContent({ children, notificationOpen, setNotificationOpen }: {
                 onClick={() => setNotificationOpen(!notificationOpen)}
               >
                 <Bell className="h-4 w-4" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 bg-motivation rounded-full animate-pulse-glow"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 bg-motivation rounded-full animate-pulse-glow"></span>
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={toggleTheme}
+                title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {isDarkMode ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
               </Button>
               <Button 
                 variant="ghost" 
@@ -92,6 +135,9 @@ function LayoutContent({ children, notificationOpen, setNotificationOpen }: {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
+                      {user.profilePhoto ? (
+                        <AvatarImage src={user.profilePhoto} alt={user.name} />
+                      ) : null}
                       <AvatarFallback className={user.avatar}>
                         {user.initials}
                       </AvatarFallback>

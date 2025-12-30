@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { useUser } from "@/contexts/UserContext"
+import { useLocation } from "react-router-dom"
 import { Plus, MessageCircle, Trophy, Lightbulb, Video, Star } from "lucide-react"
 
 interface Post {
@@ -46,6 +48,8 @@ interface CreatePostDialogProps {
 }
 
 export function CreatePostDialog({ onPostCreated }: CreatePostDialogProps) {
+  const { user } = useUser()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState({
     content: "",
@@ -54,6 +58,31 @@ export function CreatePostDialog({ onPostCreated }: CreatePostDialogProps) {
     achievementTitle: "",
     achievementPoints: ""
   })
+
+  // Check for celebrate_achievement data from sessionStorage when route changes to /community
+  useEffect(() => {
+    if (location.pathname === "/community") {
+      const celebrateData = sessionStorage.getItem("celebrate_achievement")
+      if (celebrateData) {
+        try {
+          const data = JSON.parse(celebrateData)
+          setFormData({
+            content: data.content || "",
+            type: data.type || "achievement",
+            videoUrl: "",
+            achievementTitle: data.achievementTitle || "",
+            achievementPoints: data.achievementPoints?.toString() || ""
+          })
+          setOpen(true)
+          // Clear the sessionStorage after using it
+          sessionStorage.removeItem("celebrate_achievement")
+        } catch (error) {
+          console.error("Error parsing celebrate_achievement data:", error)
+          sessionStorage.removeItem("celebrate_achievement")
+        }
+      }
+    }
+  }, [location.pathname])
 
   const resetForm = () => {
     setFormData({
@@ -75,10 +104,10 @@ export function CreatePostDialog({ onPostCreated }: CreatePostDialogProps) {
     const newPost: Post = {
       id: Date.now().toString(),
       author: {
-        name: "You",
-        initials: "YU",
-        level: 15,
-        badge: "Rising Star"
+        name: user?.name || "You",
+        initials: user?.initials || "YU",
+        level: user?.level || 1,
+        badge: user?.badge || "Newcomer"
       },
       content: formData.content,
       type: formData.type,
@@ -98,7 +127,7 @@ export function CreatePostDialog({ onPostCreated }: CreatePostDialogProps) {
     }
 
     // Add achievement data
-    if (formData.type === "achievement" && formData.achievementTitle.trim() && formData.achievementPoints) {
+    if (formData.type === "achievement" && formData.achievementTitle.trim()) {
       newPost.achievement = {
         title: formData.achievementTitle,
         points: parseInt(formData.achievementPoints) || 0,

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { UserProvider } from "@/contexts/UserContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
@@ -26,8 +27,9 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="system" storageKey="boostly-ui-theme">
       <AuthProvider>
-        <UserProvider>
-          <TooltipProvider>
+        <NotificationProvider>
+          <UserProvider>
+            <TooltipProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -114,8 +116,9 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </UserProvider>
-    </AuthProvider>
+          </UserProvider>
+        </NotificationProvider>
+      </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

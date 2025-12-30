@@ -18,7 +18,11 @@ import {
   Calendar,
   Filter,
   Search,
-  Zap
+  Zap,
+  Edit,
+  Trash2,
+  X,
+  Save
 } from "lucide-react"
 
 interface Task {
@@ -47,6 +51,10 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("")
   const [newTaskPriority, setNewTaskPriority] = useState<"low" | "medium" | "high">("medium")
   const [newTaskCategory, setNewTaskCategory] = useState("Personal")
+  const [editingTask, setEditingTask] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium")
+  const [editCategory, setEditCategory] = useState("Personal")
 
   // Load tasks from localStorage on mount
   useEffect(() => {
@@ -116,6 +124,55 @@ export default function Tasks() {
     
     setTasks([task, ...tasks])
     setNewTask("")
+  }
+
+  const startEditTask = (task: Task) => {
+    setEditingTask(task.id)
+    setEditTitle(task.title)
+    setEditPriority(task.priority)
+    setEditCategory(task.category)
+  }
+
+  const saveEditTask = () => {
+    if (!editingTask || !editTitle.trim()) return
+    
+    const updatedTasks = tasks.map(task => 
+      task.id === editingTask 
+        ? { 
+            ...task, 
+            title: editTitle,
+            priority: editPriority,
+            category: editCategory,
+            points: getTaskPoints(editPriority)
+          }
+        : task
+    )
+    
+    setTasks(updatedTasks)
+    setEditingTask(null)
+    setEditTitle("")
+  }
+
+  const cancelEdit = () => {
+    setEditingTask(null)
+    setEditTitle("")
+  }
+
+  const deleteTask = (id: string) => {
+    const taskToDelete = tasks.find(t => t.id === id)
+    if (!taskToDelete || !user) return
+    
+    // If task was completed, remove points
+    if (taskToDelete.completed) {
+      const pointsToRemove = taskToDelete.points
+      updateUser({
+        points: Math.max(0, user.points - pointsToRemove),
+        tasksCompleted: Math.max(0, user.tasksCompleted - 1),
+        weeklyPoints: Math.max(0, user.weeklyPoints - pointsToRemove),
+      })
+    }
+    
+    setTasks(tasks.filter(task => task.id !== id))
   }
 
   const filteredTasks = tasks.filter(task => {
@@ -269,50 +326,117 @@ export default function Tasks() {
       <div className="space-y-3">
         {filteredTasks.map(task => (
           <Card key={task.id} className={`p-4 transition-all ${task.completed ? 'opacity-60' : 'hover:shadow-medium'}`}>
-            <div className="flex items-start gap-4">
-              <Checkbox
-                checked={task.completed}
-                onCheckedChange={() => toggleTask(task.id)}
-                className="mt-1"
-              />
-              
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                    {task.title}
-                  </h3>
-                  
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={priorityColors[task.priority]}>
-                      <Flag className="h-3 w-3 mr-1" />
-                      {task.priority}
-                    </Badge>
-                    
-                    <Badge variant="outline">
-                      {task.category}
-                    </Badge>
-                    
-                    <div className="flex items-center gap-1 text-sm text-warning">
-                      <Star className="h-3 w-3" />
-                      {task.points}
-                    </div>
+            {editingTask === task.id ? (
+              /* Edit Form */
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Task title..."
+                      className="font-medium"
+                    />
                   </div>
                 </div>
-                
-                {task.description && (
-                  <p className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : 'text-muted-foreground'}`}>
-                    {task.description}
-                  </p>
-                )}
-                
-                {task.dueDate && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    Due {task.dueDate.toLocaleDateString()}
+                <div className="flex items-center gap-4">
+                  <select
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value as "low" | "medium" | "high")}
+                    className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="low">Low Priority ({getTaskPoints("low")} pts)</option>
+                    <option value="medium">Medium Priority ({getTaskPoints("medium")} pts)</option>
+                    <option value="high">High Priority ({getTaskPoints("high")} pts)</option>
+                  </select>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {categories.filter(c => c !== "All").map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Button onClick={saveEditTask} size="sm" className="bg-success hover:bg-success/90">
+                      <Save className="h-4 w-4 mr-1" />
+                      Save
+                    </Button>
+                    <Button onClick={cancelEdit} size="sm" variant="outline">
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Normal Task Display */
+              <div className="flex items-start gap-4">
+                <Checkbox
+                  checked={task.completed}
+                  onCheckedChange={() => toggleTask(task.id)}
+                  className="mt-1"
+                />
+                
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                      {task.title}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={priorityColors[task.priority]}>
+                        <Flag className="h-3 w-3 mr-1" />
+                        {task.priority}
+                      </Badge>
+                      
+                      <Badge variant="outline">
+                        {task.category}
+                      </Badge>
+                      
+                      <div className="flex items-center gap-1 text-sm text-warning">
+                        <Star className="h-3 w-3" />
+                        {task.points}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          onClick={() => startEditTask(task)}
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 hover:bg-primary/10"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          onClick={() => deleteTask(task.id)}
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 hover:bg-destructive/10 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {task.description && (
+                    <p className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : 'text-muted-foreground'}`}>
+                      {task.description}
+                    </p>
+                  )}
+                  
+                  {task.dueDate && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      Due {task.dueDate.toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </Card>
         ))}
         

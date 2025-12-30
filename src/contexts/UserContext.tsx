@@ -13,6 +13,7 @@ interface User {
   tasksCompleted: number
   focusHours: number
   avatar: string
+  profilePhoto?: string // Base64 encoded profile photo
   rank: number
   previousRank: number
   weeklyPoints: number
@@ -135,18 +136,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [loadUser, clearUser])
 
-  const updateUser = (updates: Partial<User>) => {
+  const updateUser = useCallback((updates: Partial<User>) => {
     if (!user) return
+    
+    // Store previous values for comparison
+    const previousLevel = user.level
+    const previousBadge = user.badge
     
     let updatedUser = { ...user, ...updates }
     
     // Recalculate level and badge if points changed
     if (updates.points !== undefined) {
       const newLevel = calculateLevel(updatedUser.points)
+      const newBadge = getBadgeForLevel(newLevel)
       updatedUser = {
         ...updatedUser,
         level: newLevel,
-        badge: getBadgeForLevel(newLevel),
+        badge: newBadge,
       }
     }
     
@@ -158,7 +164,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error saving user:", error)
     }
-  }
+    
+    // Trigger notifications if level or badge changed
+    // We'll handle this in a useEffect to ensure notifications context is available
+    if (updates.points !== undefined) {
+      const newLevel = calculateLevel(updatedUser.points)
+      const newBadge = getBadgeForLevel(newLevel)
+      
+      // Dispatch custom event for level/badge changes so notification system can listen
+      if (newLevel > previousLevel) {
+        window.dispatchEvent(new CustomEvent("userLevelUp", { 
+          detail: { oldLevel: previousLevel, newLevel, newBadge } 
+        }))
+      }
+      
+      if (newBadge !== previousBadge) {
+        window.dispatchEvent(new CustomEvent("userBadgeGained", { 
+          detail: { oldBadge: previousBadge, newBadge, level: newLevel } 
+        }))
+      }
+    }
+  }, [user])
 
   return (
     <UserContext.Provider value={{ user, updateUser, loadUser, clearUser }}>

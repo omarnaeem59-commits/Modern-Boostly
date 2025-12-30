@@ -11,6 +11,8 @@ import {
   Star
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
+import { useUser } from "@/contexts/UserContext"
+import { pointsToNextLevel } from "@/utils/points"
 
 import {
   Sidebar,
@@ -36,9 +38,16 @@ const menuItems = [
 
 export function AppSidebar() {
   const { state, setOpen } = useSidebar()
+  const { user } = useUser()
   const collapsed = state === "collapsed"
   const location = useLocation()
   const currentPath = location.pathname
+
+  // Calculate progress to next level - use actual user points
+  const userPoints = user?.points ?? 0
+  const currentLevel = user?.level ?? 1
+  const pointsInCurrentLevel = userPoints % 100
+  const progressPercentage = Math.max(0, Math.min(100, (pointsInCurrentLevel / 100) * 100))
 
   const handleNavClick = () => {
     // Auto-close sidebar on navigation (especially useful on mobile)
@@ -60,7 +69,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={`border-r border-border/50 ${collapsed ? "w-16" : "w-64"}`}>
-      <SidebarContent className="bg-surface/50 backdrop-blur-sm">
+      <SidebarContent className="sidebar-content bg-surface/50 backdrop-blur-sm">
         {/* Logo/Brand Section */}
         {!collapsed && (
           <div className="p-6 border-b border-border/50">
@@ -79,17 +88,26 @@ export function AppSidebar() {
         )}
 
         {/* User Stats Mini Display */}
-        {!collapsed && (
+        {!collapsed && user && (
           <div className="p-4 mx-4 my-2 rounded-lg glass-card">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <Star className="h-4 w-4 text-warning" />
                 <span className="text-muted-foreground">Points</span>
               </div>
-              <span className="font-semibold text-warning">1,240</span>
+              <span className="font-semibold text-warning">{userPoints.toLocaleString()}</span>
             </div>
-            <div className="mt-2 bg-muted rounded-full h-2">
-              <div className="bg-gradient-motivation h-2 rounded-full w-3/4 animate-progress"></div>
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Level {currentLevel}</span>
+                <span>{pointsToNextLevel(userPoints)} pts to next</span>
+              </div>
+              <div className="bg-muted rounded-full h-2">
+                <div 
+                  className="bg-gradient-motivation h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${progressPercentage}%` }}
+                ></div>
+              </div>
             </div>
           </div>
         )}

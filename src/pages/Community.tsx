@@ -1,11 +1,13 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CreatePostDialog } from "@/components/CreatePostDialog"
+import { useUser } from "@/contexts/UserContext"
+import { getPostComments, addComment, Comment } from "@/utils/comments"
 import { 
   Heart, 
   MessageCircle, 
@@ -171,12 +173,27 @@ const podcastsData: Podcast[] = [
 ]
 
 export default function Community() {
+  const { user } = useUser()
   const [posts, setPosts] = useState<Post[]>(initialCommunityPosts)
   const [activeFilter, setActiveFilter] = useState("All")
   const [podcastFilter, setPodcastFilter] = useState("All")
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
+
+  // Load comments for all posts on mount
+  useEffect(() => {
+    const loadedComments: Record<string, Comment[]> = {}
+    posts.forEach(post => {
+      loadedComments[post.id] = getPostComments(post.id)
+    })
+    setComments(loadedComments)
+  }, [posts])
 
   const handlePostCreated = (newPost: Post) => {
     setPosts(prev => [newPost, ...prev])
+    // Initialize comments for new post
+    setComments(prev => ({ ...prev, [newPost.id]: [] }))
   }
 
   const toggleLike = (postId: string) => {
@@ -187,6 +204,46 @@ export default function Community() {
             liked: !post.liked,
             likes: post.liked ? post.likes - 1 : post.likes + 1
           }
+        : post
+    ))
+  }
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(postId)) {
+        newSet.delete(postId)
+      } else {
+        newSet.add(postId)
+      }
+      return newSet
+    })
+  }
+
+  const handleAddComment = (postId: string) => {
+    const commentText = commentInputs[postId]?.trim()
+    if (!commentText || !user) return
+
+    const newComment: Comment = {
+      id: Date.now().toString(),
+      postId,
+      authorId: user.id,
+      authorName: user.name,
+      authorInitials: user.initials,
+      authorPhoto: user.profilePhoto,
+      content: commentText,
+      timestamp: new Date(),
+      likes: 0,
+    }
+
+    const updatedComments = addComment(postId, newComment)
+    setComments(prev => ({ ...prev, [postId]: updatedComments }))
+    setCommentInputs(prev => ({ ...prev, [postId]: '' }))
+    
+    // Update post comment count
+    setPosts(posts.map(post => 
+      post.id === postId 
+        ? { ...post, comments: post.comments + 1 }
         : post
     ))
   }
@@ -427,9 +484,13 @@ export default function Community() {
                             {post.likes}
                           </Button>
                           
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => toggleComments(post.id)}
+                          >
                             <MessageCircle className="h-4 w-4 mr-2" />
-                            {post.comments}
+                            {comments[post.id]?.length || post.comments}
                           </Button>
                           
                           <Button variant="ghost" size="sm">
@@ -438,6 +499,86 @@ export default function Community() {
                           </Button>
                         </div>
                       </div>
+
+                      {/* Comments Section */}
+                      {expandedComments.has(post.id) && (
+                        <div className="pt-4 border-t space-y-4">
+                          <div className="font-semibold text-sm mb-3">
+                            Comments ({comments[post.id]?.length || 0})
+                          </div>
+                          
+                          {/* Comments List */}
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {comments[post.id]?.map(comment => (
+                              <div key={comment.id} className="flex gap-3">
+                                <Avatar className="h-8 w-8">
+                                  {comment.authorPhoto ? (
+                                    <AvatarImage src={comment.authorPhoto} alt={comment.authorName} />
+                                  ) : null}
+                                  <AvatarFallback className="gradient-primary text-white text-xs">
+                                    {comment.authorInitials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <div className="bg-muted rounded-lg p-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-semibold text-sm">{comment.authorName}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatTimestamp(comment.timestamp)}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm">{comment.content}</p>
+                                  </div>
+                                  <Button variant="ghost" size="sm" className="h-6 px-2 mt-1">
+                                    <Heart className="h-3 w-3 mr-1" />
+                                    <span className="text-xs">{comment.likes}</span>
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            {(!comments[post.id] || comments[post.id].length === 0) && (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                No comments yet. Be the first to comment!
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Add Comment */}
+                          {user && (
+                            <div className="flex gap-2 pt-2">
+                              <Avatar className="h-8 w-8">
+                                {user.profilePhoto ? (
+                                  <AvatarImage src={user.profilePhoto} alt={user.name} />
+                                ) : null}
+                                <AvatarFallback className="gradient-primary text-white text-xs">
+                                  {user.initials}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 flex gap-2">
+                                <Input
+                                  placeholder="Write a comment..."
+                                  value={commentInputs[post.id] || ''}
+                                  onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault()
+                                      handleAddComment(post.id)
+                                    }
+                                  }}
+                                  className="flex-1"
+                                />
+                                <Button 
+                                  size="sm"
+                                  onClick={() => handleAddComment(post.id)}
+                                  disabled={!commentInputs[post.id]?.trim()}
+                                >
+                                  Post
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </Card>
                 ))}
